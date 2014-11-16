@@ -9,14 +9,14 @@ using namespace boost;
 using namespace boost::posix_time;
 using namespace darner;
 
-log::log(mutex& mutex, ostream& out, const string& tag)
+log::log(boost::mutex& mutex, ostream& out, const string& tag)
 : mutex_(mutex), out_(out), tag_(tag), enabled_(false)
 {
 }
 
 void log::enable(bool enabled)
 {
-   mutex::scoped_lock lock(mutex_);
+   boost::mutex::scoped_lock lock(mutex_);
    enabled_ = enabled;
 }
 
@@ -26,7 +26,7 @@ void log::operator()(const string& format) const
       return;
 
    ptime now(microsec_clock::local_time());
-   mutex::scoped_lock lock(mutex_);
+   boost::mutex::scoped_lock lock(mutex_);
    out_ << "[" << tag_ << "] " << now << ": " << format;
    if (boost::algorithm::ends_with(format, "...")) // stupid hack, don't newline on "..."
       out_ << flush;
