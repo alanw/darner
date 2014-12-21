@@ -1,4 +1,4 @@
-# vim 
+# vim
 *.swp
 # cmake stuff
 CMakeCache.txt
@@ -13,3 +13,4 @@ test
 # sublimetext 2 stuff
 *.sublime-project
 *.sublime-workspace
+build/
