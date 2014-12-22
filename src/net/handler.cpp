@@ -93,15 +93,15 @@ void handler::write_version()
 
 void handler::destroy()
 {
-   queues_.erase(req_.queue, false);
+   queues_.erase(req_.queue_name(), false);
    return end("DELETED\r\n");
 }
 
 void handler::flush()
 {
    // TODO: flush should guarantee that an item that's halfway pushed should still appear after
-   // the flush.  right now, item will only appear to a client that was waiting to pop before the flush 
-   queues_.erase(req_.queue, true);
+   // the flush.  right now, item will only appear to a client that was waiting to pop before the flush
+   queues_.erase(req_.queue_name(), true);
    return end();
 }
 
@@ -114,8 +114,12 @@ void handler::flush_all()
 
 void handler::set()
 {
+   // first check whether queue limit exceeded
+   if (req_.queue_limit() > 0 && queues_[req_.queue_name()]->count() >= req_.queue_limit())
+      return error("queue full", "QUEUE_ERROR");
+
    // round up the number of chunks we need, and fetch \r\n if it's just one chunk
-   push_stream_.open(queues_[req_.queue], (req_.num_bytes + chunk_size_ - 1) / chunk_size_, req_.set_sync);
+   push_stream_.open(queues_[req_.queue_name()], (req_.num_bytes + chunk_size_ - 1) / chunk_size_, req_.set_sync);
    queue::size_type remaining = req_.num_bytes - push_stream_.tell();
    queue::size_type required = remaining > chunk_size_ ? chunk_size_ : remaining + 2;
 
@@ -194,10 +198,10 @@ void handler::get()
    if ((req_.get_close && !req_.get_open) || req_.get_abort)
       return end(); // closes/aborts go no further
 
-   if (!pop_stream_.open(queues_[req_.queue]))
+   if (!pop_stream_.open(queues_[req_.queue_name()]))
    {
       if (req_.wait_ms) // couldn't read... can we at least wait?
-         return queues_[req_.queue]->wait(req_.wait_ms, bind(&handler::get_on_queue_return, shared_from_this(), _1));
+         return queues_[req_.queue_name()]->wait(req_.wait_ms, bind(&handler::get_on_queue_return, shared_from_this(), _1));
       else
          return end();
    }
@@ -211,8 +215,8 @@ void handler::get()
       return error("get", ex);
    }
 
-   header_buf_.resize(21 + req_.queue.size()); // 21 = len("VALUE  0 4294967296\r\n")
-   header_buf_.resize(::sprintf(&header_buf_[0], "VALUE %s 0 %lu\r\n", req_.queue.c_str(), pop_stream_.size()));
+   header_buf_.resize(21 + req_.queue_name().size()); // 21 = len("VALUE  0 4294967296\r\n")
+   header_buf_.resize(::sprintf(&header_buf_[0], "VALUE %s 0 %lu\r\n", req_.queue_name().c_str(), pop_stream_.size()));
 
    if (pop_stream_.tell() == pop_stream_.size())
    {

@@ -6,6 +6,10 @@
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
+
+#include "darner/queue/queue.h"
 
 namespace darner {
 
@@ -24,6 +28,40 @@ struct request
 
    request_type type;
    std::string queue;
+
+   std::string queue_name_;
+   queue::size_type queue_limit_;
+
+   std::string queue_name()
+   {
+      if (queue_name_.empty())
+         parse_name();
+      return queue_name_;
+   }
+
+   queue::size_type queue_limit()
+   {
+      if (queue_name_.empty())
+         parse_name();
+      return queue_limit_;
+   }
+
+   void parse_name()
+   {
+      std::vector<std::string> name_limit;
+      boost::split(name_limit, queue, boost::is_any_of(":"), boost::token_compress_on);
+      if (name_limit.size() <= 1 || name_limit[1].empty())
+      {
+         queue_name_ = queue;
+         queue_limit_ = 0; // unbounded
+      }
+      else
+      {
+         queue_name_ = name_limit[0];
+         queue_limit_ = boost::lexical_cast<queue::size_type>(name_limit[1]);
+      }
+   }
+
    size_t num_bytes;
    bool get_open;
    bool get_peek;
